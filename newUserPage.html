@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Add New User</title>
+    </head>
+
+    
+
+    <body>
+
+        <h1>Web OCR</h1>
+        <button id="capture-btn">Capture Image</button>
+        <div id="result"></div>
+        <div id="image-container"></div>
+
+        <script>
+            document.getElementById('capture-btn').addEventListener('click', async () => {
+                const response = await fetch('/capture', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                document.getElementById('result').innerText = data.text;
+                document.getElementById('image-container').innerHTML = `<img src="data:image/jpeg;base64,${data.image}" alt="Captured Image">`;
+            });
+        </script>
+
+        <form action="/submit" method="post">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username">
+            <input type="submit" value="Submit">
+        </form>
+    </body>
+
+        <button id = "back-btn">Back</button>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Select the button by its ID
+            var userListButton = document.getElementById('back-btn');
+
+            // Add a click event listener to the button
+            userListButton.addEventListener('click', function() {
+                // Redirect to another page
+                window.location.href = 'users'; 
+            });
+        });
+    </script>
+        </html>

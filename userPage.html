@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Web OCR</title>
+    </head>
+    <body>
+        <h1>Users: </h1>
+    </body>
+
+    
+    
+    <ul>
+        {% for folder in folders %}
+            <li><a href="{{ url_for('folder', folder_name=folder) }}">{{ folder }}</a></li>
+        {% endfor %}
+    </ul>
+
+    <button id = "newUser-btn">Add New User</button>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Select the button by its ID
+                var userListButton = document.getElementById('newUser-btn');
+
+                // Add a click event listener to the button
+                userListButton.addEventListener('click', function() {
+                    // Redirect to another page
+                    window.location.href = 'newUser'; 
+                });
+            });
+        </script>
+
+
+    <button id = "back-btn">Back</button>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Select the button by its ID
+                var userListButton = document.getElementById('back-btn');   
+
+            // Add a click event listener to the button
+            userListButton.addEventListener('click', function() {
+                // Redirect to another page
+                window.location.href = '/'; 
+            });
+        });
+        </script>
+</html>
