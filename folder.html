@@ -6,11 +6,14 @@
     <title>{{ folder_name }}</title>
 </head>
 <body>
-    <h1>{{ folder_name }}</h1>
+    <h1>{{ folder_name }}</h1> 
     
     <ul>
-        {% for item in contents %}
-            <li>{{ item }}</li>
+        {% for image_file in image_files %}
+            <li>
+                <img src="{{ url_for('static', filename=folder_name + '/' + image_file) }}" alt="{{ image_file }}">
+                <p>{{ image_file }}</p>
+            </li>
         {% endfor %}
     </ul>
 </body>

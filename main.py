@@ -11,9 +11,12 @@ from io import BytesIO
 import base64
 import string
 
+lebron_path = os.path.join(os.getcwd(), "lebron.jpg")
+lebron_image = face_recognition.load_image_file(lebron_path)
+lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
 app = Flask(__name__)
-known_users = []
-known_face_encodings = []
+known_users = ["LBJ"]
+known_face_encodings = np.array([lebron_face_encoding])
 face_locations = []
 face_encodings = []
 face_names = []
@@ -99,7 +102,8 @@ def newUser():
 def folder(folder_name):
     folder_path = os.path.join(USER_DIR, folder_name)
     contents = os.listdir(folder_path)
-    return render_template('folder.html', folder_name=folder_name, contents=contents)
+    image_files = [f for f in contents if f.endswith(('.png', '.jpg', '.jpeg', '.gif'))]  # Filter only image files
+    return render_template('folder.html', folder_name=folder_name, image_files=image_files, folder_path = folder_path)
 
 def get_folders(directory):
     folders = []
@@ -115,11 +119,15 @@ def submit():
     known_users.append(username)
     image_bytes = base64.b64decode(image_data)
     image = Image.open(BytesIO(image_bytes))
-    save_path = os.path.join(os.getcwd(), "user_faces", username + ".png")
+    save_path = os.path.join(os.getcwd(), "user_faces", username + ".jpg")
     image.save(save_path)
     this_image = face_recognition.load_image_file(save_path)
     this_face_encoding = face_recognition.face_encodings(this_image)
-    known_face_encodings.append(this_face_encoding)
+    if this_face_encoding:
+        global known_face_encodings
+        known_face_encodings = np.vstack([known_face_encodings, this_face_encoding[0]])
+    else:
+        return "No face found in the image", 400
     directory_path = os.path.join(os.getcwd(), "user_faces", username)
     if not os.path.exists(directory_path):
         os.makedirs(directory_path)
@@ -155,9 +163,9 @@ def capture():
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
         name = "Unknown"
         face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-        best_match_index = 0
-        if best_match_index!=0 :
-            name = users[best_match_index]
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = known_users[best_match_index]
             face_names.append(name)
         else:
             face_names = ["Unknown"] * len(face_locations)
@@ -196,7 +204,7 @@ def newUserCapture():
     thresh = thresholding(gray)
     cannied = canny(clean)
     extracted_text = ocr(gray)
-    pil_image = Image.fromarray(gray)
+    pil_image = Image.fromarray(rgb)
     img_buffer = BytesIO()
     pil_image.save(img_buffer, format="JPEG")
     img_str = img_buffer.getvalue()
