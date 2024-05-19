@@ -7,6 +7,7 @@ import numpy as np
 import os
 import face_recognition
 from PIL import Image
+from datetime import datetime
 from io import BytesIO
 import base64
 import string
@@ -17,6 +18,9 @@ lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
 app = Flask(__name__)
 known_users = ["LBJ"]
 known_face_encodings = np.array([lebron_face_encoding])
+
+## clear known and gather face data from user_faces at beginning incase reboot
+
 face_locations = []
 face_encodings = []
 face_names = []
@@ -141,17 +145,6 @@ def capture():
     camera = cv2.VideoCapture(0)
     return_value, image = camera.read()
     camera.release()
-    clean = remove_noise(image)
-    gray = get_grayscale(image)
-    rgb = get_RGB(image)
-    image = get_RGB(image)
-    opened = opening(clean)
-    thresh = thresholding(gray)
-    cannied = canny(clean)
-    extracted_text = ocr(rgb)
-
-
-
     small_image = cv2.resize(image, (0, 0), fx=0.25, fy=0.25)
     rgb_small_image = cv2.cvtColor(small_image, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_small_image)
@@ -161,14 +154,18 @@ def capture():
     for face_encoding in new_face_encodings:
         # See if the face is a match for the known face(s)
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-        name = "Unknown"
+        name = "??????"
         face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
         best_match_index = np.argmin(face_distances)
         if matches[best_match_index]:
             name = known_users[best_match_index]
+            now = datetime.now()
+            pil_image = Image.fromarray(image)
+            target_dir = os.path.join(os.getcwd(), "user_faces", name, now.strftime("%Y-%m-%d %H-%M-%S") + ".jpg")
+            pil_image.save(target_dir)
             face_names.append(name)
         else:
-            face_names = ["Unknown"] * len(face_locations)
+            face_names = [name] * len(face_locations)
 
         print(face_names)
 
@@ -184,7 +181,14 @@ def capture():
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(image, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
-    
+    clean = remove_noise(image)
+    gray = get_grayscale(image)
+    rgb = get_RGB(image)
+    image = get_RGB(image)
+    opened = opening(clean)
+    thresh = thresholding(gray)
+    cannied = canny(clean)
+    extracted_text = ocr(gray)
     pil_image = Image.fromarray(image)
     img_buffer = BytesIO()
     pil_image.save(img_buffer, format="JPEG")
@@ -208,7 +212,6 @@ def newUserCapture():
     img_buffer = BytesIO()
     pil_image.save(img_buffer, format="JPEG")
     img_str = img_buffer.getvalue()
-    import base64
     img_base64 = base64.b64encode(img_str).decode('utf-8')
 
     return {'text': extracted_text, 'image': img_base64}
