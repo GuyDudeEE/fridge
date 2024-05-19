@@ -8,15 +8,23 @@
 
 <body>
 
-<h1>Web OCR</h1>
+<h1>ENTER NAME, THEN PRESS CAPTURE, SUBMIT</h1>
 <button id="capture-btn">Capture New User</button>
 <div id="result"></div>
 <div id="image-container"></div>
 
 <script>
     document.getElementById('capture-btn').addEventListener('click', async () => {
+        // Get the username input value
+        const username = document.getElementById('username').value;
+        
+        // Send the username along with the image data in the POST request
         const response = await fetch('/captureNewUser', {
-            method: 'POST'
+            method: 'POST',
+            body: JSON.stringify({ username }), // Send username as JSON
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         const data = await response.json();
         document.getElementById('result').innerText = data.text;

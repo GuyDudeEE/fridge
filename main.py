@@ -21,7 +21,7 @@ process_this_frame = True
 # Path to the Tesseract executable
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-USER_DIR = os.path.join(os.getcwd(), "users")
+USER_DIR = os.path.join(os.getcwd(), "user_faces")
 
 # Function to perform OCR on an image
 def ocr(image):
@@ -142,12 +142,8 @@ def capture():
     cannied = canny(clean)
     extracted_text = ocr(rgb)
 
-    pil_image = Image.fromarray(rgb)
-    img_buffer = BytesIO()
-    pil_image.save(img_buffer, format="JPEG")
-    img_str = img_buffer.getvalue()
-    import base64
-    img_base64 = base64.b64encode(img_str).decode('utf-8')
+
+
     small_image = cv2.resize(image, (0, 0), fx=0.25, fy=0.25)
     rgb_small_image = cv2.cvtColor(small_image, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_small_image)
@@ -159,8 +155,8 @@ def capture():
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
         name = "Unknown"
         face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-        best_match_index = np.argmin(face_distances)
-        if matches[best_match_index]:
+        best_match_index = 0
+        if best_match_index!=0 :
             name = users[best_match_index]
             face_names.append(name)
         else:
@@ -180,12 +176,11 @@ def capture():
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(image, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
+    
     pil_image = Image.fromarray(image)
-    # Convert image to base64 string
     img_buffer = BytesIO()
     pil_image.save(img_buffer, format="JPEG")
     img_str = img_buffer.getvalue()
-    import base64
     img_base64 = base64.b64encode(img_str).decode('utf-8')
     return {'text': extracted_text, 'image': img_base64}
 
