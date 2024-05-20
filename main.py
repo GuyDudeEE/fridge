@@ -18,16 +18,19 @@ import threading
 
 
 ## TODO
+## 2. If no user_faces folder at runtime, make one
 ## 3. Read JPG images into folder<username>
 ## 4. Back buttons
 ## 5. Clean code, make functions 
 ## 6. rename variables, pages, and functions better
+## 7. Delete photo option
+## 7. Full storage 
 
 
 ## Scaling necessary for face_recognition, depends on esp vs webcam
 scale_up = 4
 scale_down = .25
-
+##ser = serial.Serial('COM8', 115200, timeout=100)
 # Check for ESP32??? Correct Scaling
 try:
     ser = serial.Serial('COM8', 115200, timeout=100)
@@ -67,6 +70,41 @@ def load_faces_and_encodings(directory):
 
 user_directory = os.path.join(os.getcwd(), "user_faces")
 load_faces_and_encodings(user_directory)
+
+stop_event = threading.Event()
+
+def listen_for_trigger():
+    try:
+        ser = serial.Serial('COM8', 115200, timeout=100)
+        ser.open()
+    except serial.SerialException as e:
+        print("Please check the port and try again.")
+    while not stop_event.is_set():
+        if not ser.is_open:
+            ser.open()
+        try:
+            line = ser.readline().decode('utf-8').rstrip()
+            if line == "Take_Photo":
+                capture()
+        except Exception as e:
+            print(f"Error reading from serial: {e}")
+        finally:
+            ser.close()
+        time.sleep(0.5)  # Adjust the sleep time as needed
+
+#listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
+
+def start_listener():
+    global listener_thread
+    # Reset the stop event
+    stop_event.clear()
+    # Create a new thread instance and start it
+    listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
+    listener_thread.start()
+
+def stop_listener(listener_thread):
+    stop_event.set()
+    listener_thread.join()
 
 face_locations = []
 face_encodings = []
@@ -266,39 +304,32 @@ def submit():
 
 @app.route('/capture', methods=['POST'])
 def capture():
+    #stop_listener(listener_thread)
     image = take_photo()
     recognized_image = recognize_n_save(image)
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
     recognized_image = get_RGB(recognized_image)
     img_base64 = reformat_image(recognized_image)
+    #start_listener()
     return {'text': extracted_text, 'image': img_base64}
 
 @app.route('/captureNewUser', methods=['POST'])
 def newUserCapture():
     # DO NOT REMOVE
+    #stop_listener()
     image = take_photo()
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
     image = get_RGB(image)
     img_base64 = reformat_image(image)
+    #start_listener()
     return {'text': extracted_text, 'image': img_base64}
 
-def listen_for_trigger():
-    while True:
-        ser.close()
-        ser.open()
-        line = ser.readline().decode('utf-8').rstrip()
-        if line == "TRIGGER":
-            capture()
-        ser.close()    
-        time.sleep(0.5)  # Adjust the sleep time as needed
 
-def start_listener():
-    listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
-    listener_thread.start()
 
 if __name__ == '__main__':
-    #start_listener()
+    ##listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
+    ##start_listener()
     app.run(host = "0.0.0.0", port=8000, debug=True)
     ##python -m http.server 8000 --bind 0.0.0.0

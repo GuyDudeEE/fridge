@@ -20,9 +20,14 @@
 #define VSYNC_GPIO_NUM    38
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
+#define BUTTON_PIN        D8
+
+
 
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
   //Serial.println("hola");
   //Serial.setDebugOutput(true);
   //Serial.println();
@@ -72,11 +77,6 @@ void setup() {
 #endif
   }
 
-#if defined(CAMERA_MODEL_ESP_EYE)
-  pinMode(13, INPUT_PULLUP);
-  pinMode(14, INPUT_PULLUP);
-#endif
-
   // Initialize the camera
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -87,9 +87,9 @@ void setup() {
   sensor_t * s = esp_camera_sensor_get();
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
-    s->set_vflip(s, 1); // Flip it back
-    s->set_brightness(s, 1); // Up the brightness just a bit
-    s->set_saturation(s, -2); // Lower the saturation
+    //s->set_vflip(s, 1); // Flip it back
+    s->set_brightness(s, 10); // Up the brightness just a bit
+    //s->set_saturation(s, -2); // Lower the saturation
   }
   
   // Set exposure time (adjust this value as needed)
@@ -104,24 +104,40 @@ void setup() {
   }
 
 #if defined(CAMERA_MODEL_XIAO_ESP32S3)
+  s->set_brightness(s, 10);
   s->set_vflip(s, 1);
+  s->set_hmirror(s, 1);
 #endif
 
 }
 void loop() {
-  camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) {
-    Serial.println("Camera capture failed");
-    return;
+  /* 
+  String take_photo = "Take_Photo";
+  if(BUTTON_PIN == HIGH) {
+    const char* take_photo_cstr = take_photo.c_str();
+    Serial.write(take_photo_cstr);
   }
-  
-  // Send the frame data over Serial
-  Serial.write((uint8_t*)&fb->len, sizeof(fb->len)); // Send the length of the image
-  Serial.write(fb->buf, fb->len); // Send the image buffer
-  //Serial.println("hola");
-  // Return the frame buffer back to the driver for reuse
-  esp_camera_fb_return(fb);
-
-  // Delay for a bit to avoid flooding the serial port
-  delay(200);
+  */
+  String command = Serial.readStringUntil('\n');
+  if (command == "TRIGGER") {
+      digitalWrite(LED_BUILTIN, LOW);
+      camera_fb_t *fb = esp_camera_fb_get();
+      if (!fb) {
+        Serial.println("Camera capture failed");
+        return;
+      }
+      
+      // Send the frame data over Serial
+      Serial.write((uint8_t*)&fb->len, sizeof(fb->len)); // Send the length of the image
+      Serial.write(fb->buf, fb->len); // Send the image buffer
+      //Serial.println("hola");
+      // Return the frame buffer back to the driver for reuse
+      esp_camera_fb_return(fb);
+      // Delay for a bit to avoid flooding the serial port
+      delay(200);
+      digitalWrite(LED_BUILTIN, HIGH);
+      
+      
+  } 
+       
 }
