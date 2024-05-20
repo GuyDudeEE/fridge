@@ -14,34 +14,60 @@ import string
 import serial
 import struct
 import time
+import threading
+
 
 ## TODO
-## 1. If no user_faces folder at runtime, make one
-## 2. At runtime clear known and gather face data from 
-##    user_faces (after lebron line) at beginning incase reboot
 ## 3. Read JPG images into folder<username>
 ## 4. Back buttons
 ## 5. Clean code, make functions 
 ## 6. rename variables, pages, and functions better
 
+
+## Scaling necessary for face_recognition, depends on esp vs webcam
 scale_up = 4
 scale_down = .25
-serialCam = False
+
+# Check for ESP32??? Correct Scaling
 try:
     ser = serial.Serial('COM8', 115200, timeout=100)
     scale_up = 2
     scale_down = .5
-    serialCam = True
     ser.close()
 except serial.SerialException as e:
     print("Please check the port and try again.")
 
+# Need LeBron to poulate np array correctly
 lebron_path = os.path.join(os.getcwd(), "lebron.jpg")
 lebron_image = face_recognition.load_image_file(lebron_path)
 lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
 app = Flask(__name__)
 known_users = ["LBJ"]
 known_face_encodings = np.array([lebron_face_encoding])
+
+# Scans user_faces and reloads known_faces after reboot
+def load_faces_and_encodings(directory):
+    global known_users
+    global known_face_encodings
+    for file_name in os.listdir(directory):
+        # Check if the file is an image (you can add more extensions if needed)
+        if file_name.endswith(('.jpg', '.jpeg', '.png')):
+            image_path = os.path.join(directory, file_name)
+            image = face_recognition.load_image_file(image_path)
+
+            # Find the face locations and encodings in the image
+            face_encodings = face_recognition.face_encodings(image)
+
+            # Assuming there is one face per image, take the first encoding
+            if face_encodings:
+                known_face_encodings = np.append(known_face_encodings, [face_encodings[0]], axis=0)
+                known_users.append(os.path.splitext(file_name)[0])
+            else:
+                print(f"No faces found in image: {file_name}")
+
+user_directory = os.path.join(os.getcwd(), "user_faces")
+load_faces_and_encodings(user_directory)
+
 face_locations = []
 face_encodings = []
 face_names = []
@@ -49,9 +75,8 @@ process_this_frame = True
 # Path to the Tesseract executable
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-USER_DIR = os.path.join(os.getcwd(), "user_faces")
-
 def read_image_from_serial(ser):
+    ser.write(b'TRIGGER')
     # Read the length of the image
     img_len_bytes = ser.read(4)
     img_len = int.from_bytes(img_len_bytes, 'little')
@@ -139,10 +164,11 @@ def take_photo():
     return_value, image = camera.read()
     camera.release()
     try:
+        ser.close()
         ser.open()
         anImage = read_image_from_serial(ser)
         ser.close()
-        time.sleep(.5)
+        time.sleep(.05)
         image = anImage
         serialCam = True
         scale_up = 2
@@ -152,7 +178,6 @@ def take_photo():
         scale_up = 4
         scale_down = .25
         print("Please check the port and try again.")
-    
     return image    
 
 def recognize_n_save(image):
@@ -196,7 +221,7 @@ def index():
 
 @app.route('/users')
 def users():
-    folders = get_folders(USER_DIR)
+    folders = get_folders(user_directory)
     return render_template('userPage.html', folders=folders)
 
 @app.route('/newUser')
@@ -205,7 +230,7 @@ def newUser():
 
 @app.route('/folder/<folder_name>')
 def folder(folder_name):
-    folder_path = os.path.join(USER_DIR, folder_name)
+    folder_path = os.path.join(user_directory, folder_name)
     contents = os.listdir(folder_path)
     image_files = [f for f in contents if f.endswith(('.png', '.jpg', '.jpeg', '.gif'))]  # Filter only image files
     return render_template('folder.html', folder_name=folder_name, image_files=image_files, folder_path = folder_path)
@@ -241,13 +266,11 @@ def submit():
 
 @app.route('/capture', methods=['POST'])
 def capture():
-    # Capture image from webcam
-    # DO NOT REMOVE
     image = take_photo()
     recognized_image = recognize_n_save(image)
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
-    #image = get_RGB(image)
+    recognized_image = get_RGB(recognized_image)
     img_base64 = reformat_image(recognized_image)
     return {'text': extracted_text, 'image': img_base64}
 
@@ -257,10 +280,25 @@ def newUserCapture():
     image = take_photo()
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
-    #image = get_RGB(image)
+    image = get_RGB(image)
     img_base64 = reformat_image(image)
     return {'text': extracted_text, 'image': img_base64}
 
+def listen_for_trigger():
+    while True:
+        ser.close()
+        ser.open()
+        line = ser.readline().decode('utf-8').rstrip()
+        if line == "TRIGGER":
+            capture()
+        ser.close()    
+        time.sleep(0.5)  # Adjust the sleep time as needed
+
+def start_listener():
+    listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
+    listener_thread.start()
+
 if __name__ == '__main__':
+    #start_listener()
     app.run(host = "0.0.0.0", port=8000, debug=True)
     ##python -m http.server 8000 --bind 0.0.0.0
