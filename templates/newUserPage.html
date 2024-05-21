@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New User</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        label, input {
+            margin: 10px 0;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+        }
+        input[type="submit"], button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover, button:hover {
+            background-color: #0056b3;
+        }
+        #image-container img {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>ENTER NAME, THEN PRESS CAPTURE, SUBMIT</h1>
+<button id="capture-btn">Capture New User</button>
+<div id="result"></div>
+<div id="image-container"></div>
+
+<script>
+    document.getElementById('capture-btn').addEventListener('click', async () => {
+        // Get the username input value
+        const username = document.getElementById('username').value;
+        
+        // Send the username along with the image data in the POST request
+        const response = await fetch('/captureNewUser', {
+            method: 'POST',
+            body: JSON.stringify({ username }), // Send username as JSON
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        document.getElementById('result').innerText = data.text;
+        document.getElementById('image-container').innerHTML = `<img src="data:image/jpeg;base64,${data.image}" alt="Captured Image">`;
+        
+        // Set the image data in a hidden input field
+        document.getElementById('image-data').value = data.image;
+    });
+</script>
+
+<form action="/submit" method="post">
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username">
+    
+    <!-- Hidden input field to store the image data -->
+    <input type="hidden" id="image-data" name="image_data">
+    
+    <input type="submit" id="submit-btn" value="Submit">
+</form>
+
+<div class="button-container">
+    <button id="back-btn">Back</button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Select the button by its ID
+        var backButton = document.getElementById('back-btn');
+
+        // Add a click event listener to the button
+        backButton.addEventListener('click', function() {
+            // Redirect to another page
+            window.location.href = 'users'; 
+        });
+
+        // Get the username input element
+        var usernameInput = document.getElementById('username');
+
+        // Get the submit button
+        var submitButton = document.getElementById('submit-btn');
+
+        // Add event listener to the form for submit event
+        document.querySelector('form').addEventListener('submit', function() {
+            // Set the value of the submit button to include the username
+            submitButton.value = 'Submit: ' + usernameInput.value;
+        });
+    });
+</script>
+</body>
+</html>

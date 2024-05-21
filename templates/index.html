@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAPPY FAMILY FRIDGE</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin: 20px 0;
+            font-size: 18px;
+            color: #28a745;
+        }
+        #image-container img {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>HAPPY FAMILY FRIDGE</h1>
+    <button id="capture-btn">Capture Image</button>
+    <button id="UserList-btn">Users</button>
+    <div id="result"></div>
+    <div id="image-container"></div>
+
+    <script>
+        document.getElementById('capture-btn').addEventListener('click', async () => {
+            const response = await fetch('/capture', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            document.getElementById('result').innerText = data.text;
+            document.getElementById('image-container').innerHTML = `<img src="data:image/jpeg;base64,${data.image}" alt="Captured Image">`;
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var userListButton = document.getElementById('UserList-btn');
+            userListButton.addEventListener('click', function() {
+                window.location.href = 'users'; 
+            });
+        });
+    </script>
+</body>
+</html>
