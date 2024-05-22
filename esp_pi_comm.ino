@@ -20,14 +20,15 @@
 #define VSYNC_GPIO_NUM    38
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
-#define BUTTON_PIN        D8
-
+#define BUTTON_PIN        D3
+int i = 0;
 
 
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   //Serial.println("hola");
   //Serial.setDebugOutput(true);
   //Serial.println();
@@ -51,7 +52,7 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 10000000;
-  config.frame_size = FRAMESIZE_HD;
+  config.frame_size = FRAMESIZE_UXGA;
   config.pixel_format = PIXFORMAT_JPEG; // for streaming
   //config.pixel_format = PIXFORMAT_RGB565; // for face detection/recognition
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
@@ -61,7 +62,7 @@ void setup() {
 
   if(config.pixel_format == PIXFORMAT_JPEG){
     if(psramFound()){
-      config.jpeg_quality = 10;
+      config.jpeg_quality = 2;
       config.fb_count = 2;
       config.grab_mode = CAMERA_GRAB_LATEST;
     } else {
@@ -105,39 +106,44 @@ void setup() {
 
 #if defined(CAMERA_MODEL_XIAO_ESP32S3)
   s->set_brightness(s, 10);
-  s->set_vflip(s, 1);
+  //s->set_vflip(s, 1);
   s->set_hmirror(s, 1);
 #endif
 
 }
 void loop() {
-  /* 
-  String take_photo = "Take_Photo";
-  if(BUTTON_PIN == HIGH) {
-    const char* take_photo_cstr = take_photo.c_str();
-    Serial.write(take_photo_cstr);
+  i+=1;
+   
+  if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    
+    if (command == "TRIGGER") {
+        digitalWrite(LED_BUILTIN, LOW);
+        camera_fb_t *fb = esp_camera_fb_get();
+        if (!fb) {
+          Serial.println("Camera capture failed");
+          return;
+        }
+        while(Serial.available() > 0){
+          Serial.read();
+        }
+        // Send the frame data over Serial
+        Serial.write((uint8_t*)&fb->len, sizeof(fb->len)); // Send the length of the image
+        Serial.write(fb->buf, fb->len); // Send the image buffer
+        //Serial.println("hola");
+        // Return the frame buffer back to the driver for reuse
+        esp_camera_fb_return(fb);
+        // Delay for a bit to avoid flooding the serial port
+        
+        delay(200);
+        digitalWrite(LED_BUILTIN, HIGH);
+        
+    }    
+        
   }
-  */
-  String command = Serial.readStringUntil('\n');
-  if (command == "TRIGGER") {
-      digitalWrite(LED_BUILTIN, LOW);
-      camera_fb_t *fb = esp_camera_fb_get();
-      if (!fb) {
-        Serial.println("Camera capture failed");
-        return;
-      }
-      
-      // Send the frame data over Serial
-      Serial.write((uint8_t*)&fb->len, sizeof(fb->len)); // Send the length of the image
-      Serial.write(fb->buf, fb->len); // Send the image buffer
-      //Serial.println("hola");
-      // Return the frame buffer back to the driver for reuse
-      esp_camera_fb_return(fb);
-      // Delay for a bit to avoid flooding the serial port
-      delay(200);
-      digitalWrite(LED_BUILTIN, HIGH);
-      
-      
-  } 
-       
+  String take_photo = "Take_Photo";
+  if ((BUTTON_PIN == HIGH) && Serial.available() == 0){
+    Serial.println(take_photo); 
+    //Serial.println((analogRead(BUTTON_PIN)));
+  }     
 }
