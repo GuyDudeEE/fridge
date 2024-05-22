@@ -142,7 +142,7 @@ void loop() {
         
   }
   String take_photo = "Take_Photo";
-  if ((BUTTON_PIN == HIGH) && Serial.available() == 0){
+  if ((i%3000000 == 0) && Serial.available() == 0){
     Serial.println(take_photo); 
     //Serial.println((analogRead(BUTTON_PIN)));
   }     

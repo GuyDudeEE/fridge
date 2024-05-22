@@ -38,11 +38,9 @@ try:
     scale_down = .5
     #ser.close()
 except serial.SerialException as e:
-    print("Please check the port and try again. (41)")
+    print("Please check the port and try again.")
 
-#time.sleep(2)
-
-# Need LeBron to populate np array correctly
+# Need LeBron to poulate np array correctly
 lebron_path = os.path.join(os.getcwd(), "lebron.jpg")
 lebron_image = face_recognition.load_image_file(lebron_path)
 lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
@@ -51,13 +49,13 @@ known_users = ["LBJ"]
 known_face_encodings = np.array([lebron_face_encoding])
 
 # Scans user_faces and reloads known_faces after reboot
-def load_faces_and_encodings(user):
+def load_faces_and_encodings(directory):
     global known_users
     global known_face_encodings
-    for file_name in os.listdir(user_directory):
+    for file_name in os.listdir(directory):
         # Check if the file is an image (you can add more extensions if needed)
         if file_name.endswith(('.jpg', '.jpeg', '.png')):
-            image_path = os.path.join(user_directory, file_name)
+            image_path = os.path.join(directory, file_name)
             image = face_recognition.load_image_file(image_path)
 
             # Find the face locations and encodings in the image
@@ -70,7 +68,7 @@ def load_faces_and_encodings(user):
             else:
                 print(f"No faces found in image: {file_name}")
 
-user_directory = os.path.join(os.getcwd(), "static", "user_faces")
+user_directory = os.path.join(os.getcwd(),"static", "user_faces")
 load_faces_and_encodings(user_directory)
 
 stop_event = threading.Event()
@@ -90,10 +88,12 @@ def listen_for_trigger():
             pass
         time.sleep(0.1)  # Adjust the sleep time as needed
     
+
+
 #listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
 
 def start_listener():
-    #global listener_thread
+    global listener_thread
     # Reset the stop event
     stop_event.clear()
     # Create a new thread instance and start it
@@ -130,6 +130,7 @@ def read_image_from_serial(ser):
     img_array = np.frombuffer(img_data, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     return img
+
 
 # Function to perform OCR on an image
 def ocr(image):
@@ -198,6 +199,8 @@ def reformat_image(image):
     return img_base64 
 
 def take_photo():
+    global scale_up
+    global scale_down
     camera = cv2.VideoCapture(0)
     return_value, image = camera.read()
     camera.release()
@@ -212,7 +215,7 @@ def take_photo():
         scale_up = 4
         scale_down = .25
         print("Please check the port and try again.(212)")
-    return image    
+    return image
 
 def recognize_n_save(image):
     small_image = cv2.resize(image, (0, 0), fx=scale_down, fy=scale_down)
@@ -272,6 +275,7 @@ def folder(folder_name):
     print(image_urls)
     return render_template('folder.html', folder_name=folder_name, image_files = image_files, image_urls=image_urls)
 
+
 def get_folders(directory):
     folders = []
     for item in os.listdir(directory):
@@ -295,11 +299,12 @@ def submit():
         known_face_encodings = np.vstack([known_face_encodings, this_face_encoding[0]])
     else:
         return "No face found in the image", 400
-    directory_path = os.path.join(user_directory, username)
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
-    
-    return render_template('submit.html')
+    newUser_path = os.path.join(user_directory, username)
+    if not os.path.exists(newUser_path):
+        os.makedirs(newUser_path)
+        return f"Directory for username {username} created"
+    else:
+        return f"Directory for username {username} already exists"
 
 @app.route('/capture', methods=['POST'])
 def capture():
@@ -308,7 +313,6 @@ def capture():
     recognized_image = recognize_n_save(image)
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
-    ##recognized_image = get_RGB(recognized_image)
     img_base64 = reformat_image(recognized_image)
     return {'text': extracted_text, 'image': img_base64}
 
@@ -319,14 +323,14 @@ def newUserCapture():
     image = get_RGB(image)
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
-    ##image = get_RGB(image)
     img_base64 = reformat_image(image)
     return {'text': extracted_text, 'image': img_base64}
 
 
 
-if __name__ == '__main__':
-    start_listener()
-    app.run(debug=True, port=8000, host='0.0.0.0')
 
+if __name__ == '__main__':
+    ##listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
+    start_listener()
+    app.run(host = "0.0.0.0", port=8000, debug=True)
     ##python -m http.server 8000 --bind 0.0.0.0
