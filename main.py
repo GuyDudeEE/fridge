@@ -30,7 +30,7 @@ import threading
 ## Scaling necessary for face_recognition, depends on esp vs webcam
 scale_up = 4
 scale_down = .25
-##ser = serial.Serial('COM8', 115200, timeout=100)
+
 # Check for ESP32??? Correct Scaling
 try:
     ser = serial.Serial('COM8', 115200, timeout=100)
@@ -77,7 +77,6 @@ def listen_for_trigger():
     global ser
     while True:
         try:
-            #ser = serial.Serial('COM8', 115200, timeout=100)
             if ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8').rstrip()
                 if line == "Take_Photo":
@@ -88,9 +87,6 @@ def listen_for_trigger():
             pass
         time.sleep(0.1)  # Adjust the sleep time as needed
     
-
-
-#listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
 
 def start_listener():
     global listener_thread
@@ -112,7 +108,6 @@ process_this_frame = True
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def read_image_from_serial(ser):
-    #ser.reset_input_buffer()
     ser.write(b'TRIGGER')
     # Read the length of the image
     img_len_bytes = ser.read(4)
@@ -121,7 +116,6 @@ def read_image_from_serial(ser):
 
     # Read the image data
     img_data = ser.read(img_len)
-    #ser.reset_input_buffer()
     if len(img_data) != img_len:
         print(f"Failed to read the full image. Read {len(img_data)} bytes.")
         return None
@@ -211,7 +205,6 @@ def take_photo():
         scale_up = 2
         scale_down = .5
     except Exception as e:
-        serialCam = False
         scale_up = 4
         scale_down = .25
         print("Please check the port and try again.(212)")
@@ -327,10 +320,7 @@ def newUserCapture():
     return {'text': extracted_text, 'image': img_base64}
 
 
-
-
 if __name__ == '__main__':
-    ##listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
     start_listener()
     app.run(host = "0.0.0.0", port=8000, debug=True)
     ##python -m http.server 8000 --bind 0.0.0.0
