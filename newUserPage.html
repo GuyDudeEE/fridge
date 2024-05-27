@@ -4,11 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add New User</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        label, input {
+            margin: 10px 0;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+        }
+        input[type="submit"], button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover, button:hover {
+            background-color: #0056b3;
+        }
+        #image-container img {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
 </head>
-
 <body>
 
-<h1>NAME, CAPTURE, SUBMIT</h1>
+<h1>ENTER NAME, THEN PRESS CAPTURE, SUBMIT</h1>
 <button id="capture-btn">Capture New User</button>
 <div id="result"></div>
 <div id="image-container"></div>
@@ -45,14 +100,17 @@
     <input type="submit" id="submit-btn" value="Submit">
 </form>
 
-<button id="back-btn">Back</button>
+<div class="button-container">
+    <button id="back-btn">Back</button>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Select the button by its ID
-        var userListButton = document.getElementById('back-btn');
+        var backButton = document.getElementById('back-btn');
 
         // Add a click event listener to the button
-        userListButton.addEventListener('click', function() {
+        backButton.addEventListener('click', function() {
             // Redirect to another page
             window.location.href = 'users'; 
         });

@@ -30,13 +30,13 @@ import threading
 ## Scaling necessary for face_recognition, depends on esp vs webcam
 scale_up = 4
 scale_down = .25
-##ser = serial.Serial('COM8', 115200, timeout=100)
+
 # Check for ESP32??? Correct Scaling
 try:
     ser = serial.Serial('COM8', 115200, timeout=100)
     scale_up = 2
     scale_down = .5
-    ser.close()
+    #ser.close()
 except serial.SerialException as e:
     print("Please check the port and try again.")
 
@@ -68,31 +68,25 @@ def load_faces_and_encodings(directory):
             else:
                 print(f"No faces found in image: {file_name}")
 
-user_directory = os.path.join(os.getcwd(), "user_faces")
+user_directory = os.path.join(os.getcwd(),"static", "user_faces")
 load_faces_and_encodings(user_directory)
 
 stop_event = threading.Event()
 
 def listen_for_trigger():
-    try:
-        ser = serial.Serial('COM8', 115200, timeout=100)
-        ser.open()
-    except serial.SerialException as e:
-        print("Please check the port and try again.")
-    while not stop_event.is_set():
-        if not ser.is_open:
-            ser.open()
+    global ser
+    while True:
         try:
-            line = ser.readline().decode('utf-8').rstrip()
-            if line == "Take_Photo":
-                capture()
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8').rstrip()
+                if line == "Take_Photo":
+                    #ser.reset_input_buffer()
+                    capture()
+                    
         except Exception as e:
-            print(f"Error reading from serial: {e}")
-        finally:
-            ser.close()
-        time.sleep(0.5)  # Adjust the sleep time as needed
-
-#listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
+            pass
+        time.sleep(0.1)  # Adjust the sleep time as needed
+    
 
 def start_listener():
     global listener_thread
@@ -130,6 +124,7 @@ def read_image_from_serial(ser):
     img_array = np.frombuffer(img_data, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     return img
+
 
 # Function to perform OCR on an image
 def ocr(image):
@@ -198,25 +193,22 @@ def reformat_image(image):
     return img_base64 
 
 def take_photo():
+    global scale_up
+    global scale_down
     camera = cv2.VideoCapture(0)
     return_value, image = camera.read()
     camera.release()
     try:
-        ser.close()
-        ser.open()
         anImage = read_image_from_serial(ser)
-        ser.close()
-        time.sleep(.05)
+        #time.sleep(.05)
         image = anImage
-        serialCam = True
         scale_up = 2
         scale_down = .5
     except Exception as e:
-        serialCam = False
         scale_up = 4
         scale_down = .25
-        print("Please check the port and try again.")
-    return image    
+        print("Please check the port and try again.(212)")
+    return image
 
 def recognize_n_save(image):
     small_image = cv2.resize(image, (0, 0), fx=scale_down, fy=scale_down)
@@ -234,7 +226,7 @@ def recognize_n_save(image):
             name = known_users[best_match_index]
             now = datetime.now()
             pil_image = Image.fromarray(image)
-            target_dir = os.path.join(os.getcwd(), "user_faces", name, now.strftime("%Y-%m-%d %H-%M-%S") + ".jpg")
+            target_dir = os.path.join(user_directory, name, now.strftime("%Y-%m-%d %H-%M-%S") + ".jpg")
             pil_image.save(target_dir)
             face_names.append(name)
         else:
@@ -271,7 +263,11 @@ def folder(folder_name):
     folder_path = os.path.join(user_directory, folder_name)
     contents = os.listdir(folder_path)
     image_files = [f for f in contents if f.endswith(('.png', '.jpg', '.jpeg', '.gif'))]  # Filter only image files
-    return render_template('folder.html', folder_name=folder_name, image_files=image_files, folder_path = folder_path)
+
+    image_urls = [url_for('static', filename=os.path.join('user_faces', folder_name, image).replace('\\', '/')) for image in image_files]
+    print(image_urls)
+    return render_template('folder.html', folder_name=folder_name, image_files = image_files, image_urls=image_urls)
+
 
 def get_folders(directory):
     folders = []
@@ -287,7 +283,7 @@ def submit():
     known_users.append(username)
     image_bytes = base64.b64decode(image_data)
     image = Image.open(BytesIO(image_bytes))
-    save_path = os.path.join(os.getcwd(), "user_faces", username + ".jpg")
+    save_path = os.path.join(user_directory, username + ".jpg")
     image.save(save_path)
     this_image = face_recognition.load_image_file(save_path)
     this_face_encoding = face_recognition.face_encodings(this_image)
@@ -296,40 +292,35 @@ def submit():
         known_face_encodings = np.vstack([known_face_encodings, this_face_encoding[0]])
     else:
         return "No face found in the image", 400
-    directory_path = os.path.join(os.getcwd(), "user_faces", username)
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
-    
-    return f"Directory for username {username} created"
+    newUser_path = os.path.join(user_directory, username)
+    if not os.path.exists(newUser_path):
+        os.makedirs(newUser_path)
+        return f"Directory for username {username} created"
+    else:
+        return f"Directory for username {username} already exists"
 
 @app.route('/capture', methods=['POST'])
 def capture():
-    #stop_listener(listener_thread)
     image = take_photo()
+    image = get_RGB(image)
     recognized_image = recognize_n_save(image)
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
-    recognized_image = get_RGB(recognized_image)
     img_base64 = reformat_image(recognized_image)
-    #start_listener()
     return {'text': extracted_text, 'image': img_base64}
 
 @app.route('/captureNewUser', methods=['POST'])
 def newUserCapture():
     # DO NOT REMOVE
-    #stop_listener()
     image = take_photo()
+    image = get_RGB(image)
     preprocessed_im = pre_OCR_image_processing(image)
     extracted_text = ocr(preprocessed_im)
-    image = get_RGB(image)
     img_base64 = reformat_image(image)
-    #start_listener()
     return {'text': extracted_text, 'image': img_base64}
 
 
-
 if __name__ == '__main__':
-    ##listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
-    ##start_listener()
+    start_listener()
     app.run(host = "0.0.0.0", port=8000, debug=True)
     ##python -m http.server 8000 --bind 0.0.0.0
