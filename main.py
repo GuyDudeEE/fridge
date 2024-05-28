@@ -26,21 +26,28 @@ import threading
 ## 7. Delete photo option
 ## 7. Full storage 
 
+lastCaptureTime = 0
+captureInterval = 5
 
 ## Scaling necessary for face_recognition, depends on esp vs webcam
 scale_up = 4
 scale_down = .25
-
 # Check for ESP32??? Correct Scaling
+connected = False
+#while (connected == False):
 try:
     ser = serial.Serial('COM8', 115200, timeout=100)
     scale_up = 2
     scale_down = .5
     #ser.close()
+    connected = True
 except serial.SerialException as e:
     print("Please check the port and try again.")
 
+
 # Need LeBron to poulate np array correctly
+honey_path = os.path.join(os.getcwd(), "tryAgain.jpg")
+honey_image = face_recognition.load_image_file(honey_path)
 lebron_path = os.path.join(os.getcwd(), "lebron.jpg")
 lebron_image = face_recognition.load_image_file(lebron_path)
 lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
@@ -80,7 +87,6 @@ def listen_for_trigger():
             if ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8').rstrip()
                 if line == "Take_Photo":
-                    #ser.reset_input_buffer()
                     capture()
                     
         except Exception as e:
@@ -193,8 +199,15 @@ def reformat_image(image):
     return img_base64 
 
 def take_photo():
+    global honey_image
+    global lastCaptureTime
     global scale_up
     global scale_down
+    currentTime = time.time()
+    if currentTime - lastCaptureTime < 3:
+        honey_image = get_RGB(honey_image)
+        return honey_image
+    lastCaptureTime = currentTime
     camera = cv2.VideoCapture(0)
     return_value, image = camera.read()
     camera.release()
@@ -300,27 +313,23 @@ def submit():
         return f"Directory for username {username} already exists"
 
 @app.route('/capture', methods=['POST'])
-def capture():
-    image = take_photo()
-    image = get_RGB(image)
-    recognized_image = recognize_n_save(image)
-    preprocessed_im = pre_OCR_image_processing(image)
-    extracted_text = ocr(preprocessed_im)
-    img_base64 = reformat_image(recognized_image)
+def capture(): ## Triggered by physical and virtual button push
+    image = take_photo() ## Get image from XIAO S3 Sense
+    image = get_RGB(image) ## Convert to RGB
+    recognized_image = recognize_n_save(image) ## Match face, draw box, save to user
+    preprocessed_im = pre_OCR_image_processing(image) ## Filters for OCR
+    extracted_text = ocr(preprocessed_im) ## Find OCR text
+    img_base64 = reformat_image(recognized_image) ## Convert to JPG, return as b64 string
     return {'text': extracted_text, 'image': img_base64}
 
 @app.route('/captureNewUser', methods=['POST'])
-def newUserCapture():
-    # DO NOT REMOVE
-    image = take_photo()
-    image = get_RGB(image)
-    preprocessed_im = pre_OCR_image_processing(image)
-    extracted_text = ocr(preprocessed_im)
-    img_base64 = reformat_image(image)
-    return {'text': extracted_text, 'image': img_base64}
-
+def newUserCapture(): ## Triggered by virtual button push
+    image = take_photo() ## Get image from XIAO S3 Sense
+    image = get_RGB(image) ## Convert to RGB
+    img_base64 = reformat_image(image) ## Convert to JPG, return as str
+    return {'text': '', 'image': img_base64}
 
 if __name__ == '__main__':
     start_listener()
-    app.run(host = "0.0.0.0", port=8000, debug=True)
+    app.run(host = "0.0.0.0", port=8000)
     ##python -m http.server 8000 --bind 0.0.0.0
