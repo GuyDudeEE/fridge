@@ -1,4 +1,5 @@
 import cv2
+import pytesseract
 from flask import Flask, render_template, request, Response, redirect, url_for, json, jsonify
 from PIL import Image
 from io import BytesIO
@@ -11,6 +12,7 @@ from io import BytesIO
 import base64
 import string
 import serial
+import struct
 import time
 import threading
 
@@ -27,6 +29,7 @@ try:
     connected = True
 except serial.SerialException as e:
     print("Please check the port and try again.")
+
 
 # Need LeBron to poulate np array correctly
 honey_path = os.path.join(os.getcwd(), "tryAgain.jpg")
@@ -58,6 +61,7 @@ def load_faces_and_encodings(directory):
             else:
                 print(f"No faces found in image: {file_name}")
 
+
 def listen_for_trigger():
     global ser
     while True:
@@ -76,6 +80,9 @@ load_faces_and_encodings(user_directory)
 face_locations = []
 face_encodings = []
 face_names = []
+process_this_frame = True
+# Path to the Tesseract executable
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def start_listener():
     global listener_thread
@@ -99,6 +106,11 @@ def read_image_from_serial(ser):
     img_array = np.frombuffer(img_data, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     return img
+
+# Function to perform OCR on an image
+def ocr(image):
+    text = pytesseract.image_to_string(image)
+    return text if text.strip() else "no text found"
 
 def get_grayscale(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -291,8 +303,10 @@ def capture(): ## Triggered by physical and virtual button push
     image = take_photo() ## Get image from XIAO S3 Sense
     image = get_RGB(image) ## Convert to RGB
     recognized_image = recognize_n_save(image) ## Match face, draw box, save to user
+    preprocessed_im = pre_OCR_image_processing(image) ## Filters for OCR
+    extracted_text = ocr(preprocessed_im) ## Find OCR text
     img_base64 = reformat_image(recognized_image) ## Convert to JPG, return as as bitstream
-    return {'text': '', 'image': img_base64}
+    return {'text': extracted_text, 'image': img_base64}
 
 @app.route('/captureNewUser', methods=['POST'])
 def newUserCapture(): ## Triggered by virtual button push
