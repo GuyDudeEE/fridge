@@ -13,6 +13,13 @@ import string
 import serial
 import time
 import threading
+import roboflow
+
+
+# Initialize Roboflow API with your API key
+rf = roboflow.Roboflow(api_key="YOUR_API_KEY_HERE")
+project = rf.workspace().project("PROJECT_ID")
+model = project.version("1").model
 
 lastCaptureTime = 0
 captureInterval = 5
@@ -37,6 +44,14 @@ lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
 app = Flask(__name__)
 known_users = ["LBJ"]
 known_face_encodings = np.array([lebron_face_encoding])
+
+
+def detect_objects(image_path):
+    # Perform object detection using the Roboflow model
+    prediction = model.predict(image_path)
+    prediction.plot()  # To visualize the predictions (optional)
+    predictions_json = prediction.json()  # To get the predictions in JSON format
+    return predictions_json
 
 # Scans user_faces and reloads known_faces after reboot
 def load_faces_and_encodings(directory):
@@ -292,14 +307,30 @@ def capture(): ## Triggered by physical and virtual button push
     image = get_RGB(image) ## Convert to RGB
     recognized_image = recognize_n_save(image) ## Match face, draw box, save to user
     img_base64 = reformat_image(recognized_image) ## Convert to JPG, return as as bitstream
-    return {'text': '', 'image': img_base64}
+
+    # Save the image to a temporary file
+    temp_image_path = "temp_image.jpg"
+    cv2.imwrite(temp_image_path, recognized_image)
+    
+    # Perform object detection
+    object_predictions = detect_objects(temp_image_path)
+
+    return {'text': '', 'image': img_base64, 'objects': object_predictions}
 
 @app.route('/captureNewUser', methods=['POST'])
 def newUserCapture(): ## Triggered by virtual button push
     image = take_photo() ## Get image from XIAO S3 Sense
     image = get_RGB(image) ## Convert to RGB
     img_base64 = reformat_image(image) ## Convert to JPG, return as bitstream
-    return {'text': '', 'image': img_base64}
+
+    # Save the image to a temporary file
+    temp_image_path = "temp_image.jpg"
+    cv2.imwrite(temp_image_path, image)
+
+    # Perform object detection
+    object_predictions = detect_objects(temp_image_path)
+
+    return {'text': '', 'image': img_base64, 'objects': object_predictions}
 
 if __name__ == '__main__':
     start_listener()
