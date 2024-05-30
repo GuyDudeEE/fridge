@@ -1,0 +1,22 @@
+data={'class_name': array(['person', 'person', 'person', 'person', 'person', 'person',
+       'person', 'person', 'bird', 'person', 'person', 'person', 'person',
+       'person', 'person', 'person', 'person', 'person', 'person',
+       'person', 'person', 'person', 'person', 'bird', 'person']-
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
