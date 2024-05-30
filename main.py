@@ -1,4 +1,5 @@
 import cv2
+#import pytesseract
 from flask import Flask, render_template, request, Response, redirect, url_for, json, jsonify
 from PIL import Image
 from io import BytesIO
@@ -11,13 +12,23 @@ from io import BytesIO
 import base64
 import string
 import serial
+import struct
 import time
 import threading
 import roboflow
 
 
+## TODO
+## 2. If no user_faces folder at runtime, make one
+## 3. Read JPG images into folder<username>
+## 4. Back buttons
+## 5. Clean code, make functions 
+## 6. rename variables, pages, and functions better
+## 7. Delete photo option
+## 7. Full storage 
+
 # Initialize Roboflow API with your API key
-rf = roboflow.Roboflow(api_key="YOUR_API_KEY_HERE")
+rf = roboflow.Roboflow(api_key="zxoKHEJwrJO7PNKlDol6Y4Bldpj1")
 project = rf.workspace().project("PROJECT_ID")
 model = project.version("1").model
 
@@ -27,11 +38,13 @@ captureInterval = 5
 ## Scaling necessary for face_recognition, depends on esp vs webcam
 scale_up = 4
 scale_down = .25
+
+# Check for ESP32??? Correct Scaling
 try:
-    ser = serial.Serial('COM8', 115200, timeout=100)
+    ser = serial.Serial('/dev/ttyACM0', 115200, timeout=100)
     scale_up = 2
     scale_down = .5
-    connected = True
+    #ser.close()
 except serial.SerialException as e:
     print("Please check the port and try again.")
 
@@ -41,10 +54,10 @@ honey_image = face_recognition.load_image_file(honey_path)
 lebron_path = os.path.join(os.getcwd(), "lebron.jpg")
 lebron_image = face_recognition.load_image_file(lebron_path)
 lebron_face_encoding = face_recognition.face_encodings(lebron_image)[0]
-app = Flask(__name__)
+app = Flask(__name__) 
+
 known_users = ["LBJ"]
 known_face_encodings = np.array([lebron_face_encoding])
-
 
 def detect_objects(image_path):
     # Perform object detection using the Roboflow model
@@ -63,15 +76,20 @@ def load_faces_and_encodings(directory):
             image_path = os.path.join(directory, file_name)
             image = face_recognition.load_image_file(image_path)
 
-            # Find the face locations and encodings in the image
-            preStored_face_encodings = face_recognition.face_encodings(image)
+            # Find the face locations and encodings in the imagew
+            face_encodings = face_recognition.face_encodings(image)
 
             # Assuming there is one face per image, take the first encoding
-            if preStored_face_encodings:
-                known_face_encodings = np.append(known_face_encodings, [preStored_face_encodings[0]], axis=0)
+            if face_encodings:
+                known_face_encodings = np.append(known_face_encodings, [face_encodings[0]], axis=0)
                 known_users.append(os.path.splitext(file_name)[0])
             else:
                 print(f"No faces found in image: {file_name}")
+
+user_directory = os.path.join(os.getcwd(),"static", "user_faces")
+load_faces_and_encodings(user_directory)
+
+stop_event = threading.Event()
 
 def listen_for_trigger():
     global ser
@@ -80,22 +98,32 @@ def listen_for_trigger():
             if ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8').rstrip()
                 if line == "Take_Photo":
+                    #ser.reset_input_buffer()
                     capture()
                     
         except Exception as e:
             pass
         time.sleep(0.1)  # Adjust the sleep time as needed
     
-user_directory = os.path.join(os.getcwd(),"static", "user_faces")
-load_faces_and_encodings(user_directory)
-face_locations = []
-face_encodings = []
-face_names = []
 
 def start_listener():
     global listener_thread
+    # Reset the stop event
+    stop_event.clear()
+    # Create a new thread instance and start it
     listener_thread = threading.Thread(target=listen_for_trigger, daemon=True)
     listener_thread.start()
+
+def stop_listener(listener_thread):
+    stop_event.set()
+    listener_thread.join()
+
+face_locations = []
+face_encodings = []
+face_names = []
+process_this_frame = True
+# Path to the Tesseract executable
+#pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def read_image_from_serial(ser):
     ser.write(b'TRIGGER')
@@ -114,6 +142,12 @@ def read_image_from_serial(ser):
     img_array = np.frombuffer(img_data, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     return img
+
+
+# Function to perform OCR on an image
+#def ocr(image):
+#    text = pytesseract.image_to_string(image)
+#    return text if text.strip() else "no text found"
 
 def get_grayscale(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -177,6 +211,7 @@ def reformat_image(image):
     return img_base64 
 
 def take_photo():
+    global ser
     global honey_image
     global lastCaptureTime
     global scale_up
@@ -186,9 +221,6 @@ def take_photo():
         honey_image = get_RGB(honey_image)
         return honey_image
     lastCaptureTime = currentTime
-    camera = cv2.VideoCapture(0)
-    return_value, image = camera.read()
-    camera.release()
     try:
         anImage = read_image_from_serial(ser)
         #time.sleep(.05)
@@ -202,6 +234,7 @@ def take_photo():
     return image
 
 def recognize_n_save(image):
+    global ser
     small_image = cv2.resize(image, (0, 0), fx=scale_down, fy=scale_down)
     rgb_small_image = cv2.cvtColor(small_image, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_small_image)
@@ -222,18 +255,23 @@ def recognize_n_save(image):
             face_names.append(name)
         else:
             face_names = [name] * len(face_locations)
-        print(face_names)
+            
+    print(face_names)
+    if(len(face_names) == 0):
+        ser.write(b'Unrecognized')
+        print("should buzz")
 
     for (top, right, bottom, left), name in zip(face_locations, face_names):
         # Scale back up face locations since the image we detected in was scaled to 1/4 size
         top *= scale_up
-        right *= scale_up
+        right *= scale_up 
         bottom *= scale_up
         left *= scale_up
         cv2.rectangle(image, (left, top), (right, bottom), (0, 0, 255), 2)
         cv2.rectangle(image, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(image, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+
     return image  
 
 @app.route('/')
@@ -317,20 +355,14 @@ def capture(): ## Triggered by physical and virtual button push
 
     return {'text': '', 'image': img_base64, 'objects': object_predictions}
 
+
 @app.route('/captureNewUser', methods=['POST'])
-def newUserCapture(): ## Triggered by virtual button push
-    image = take_photo() ## Get image from XIAO S3 Sense
-    image = get_RGB(image) ## Convert to RGB
-    img_base64 = reformat_image(image) ## Convert to JPG, return as bitstream
-
-    # Save the image to a temporary file
-    temp_image_path = "temp_image.jpg"
-    cv2.imwrite(temp_image_path, image)
-
-    # Perform object detection
-    object_predictions = detect_objects(temp_image_path)
-
-    return {'text': '', 'image': img_base64, 'objects': object_predictions}
+def newUserCapture():
+    # DO NOT REMOVE
+    image = take_photo()
+    image = get_RGB(image)
+    img_base64 = reformat_image(image)
+    return {'text': ' ', 'image': img_base64}
 
 if __name__ == '__main__':
     start_listener()
