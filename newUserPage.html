@@ -63,8 +63,8 @@
 </head>
 <body>
 
-<h1>CAPTURE, USERNAME, SUBMIT</h1>
-<button id="capture-btn">Capture New User</button>
+<h1>New User</h1>
+<button id="capture-btn">Scan Face</button>
 <div id="result"></div>
 <div id="image-container"></div>
 
@@ -91,7 +91,7 @@
 </script>
 
 <form action="/submit" method="post">
-    <label for="username">Username:</label>
+    <label for="username">Enter Username:</label>
     <input type="text" id="username" name="username">
     
     <!-- Hidden input field to store the image data -->
