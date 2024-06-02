@@ -1,0 +1,1 @@
+{'time': 0.5805885809999154, 'image': {'width': 4928, 'height': 3263}, 'predictions': [{'x': 2605.96875, 'y': 1626.625, 'width': 2507.3125, 'height': 2810.5, 'confidence': 0.955898106098175, 'class': 'apple', 'class_id': 47, 'detection_id': 'dded2194-5082-4aad-ae25-fe656127256d'}]}
