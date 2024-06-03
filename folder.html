@@ -161,10 +161,11 @@
 <body>
     <h1>Contents of folder: {{ folder_name }}</h1>
     <ul>
-        {% for image_url in image_urls %}
+        {% for image in image_data %}
             <li>
-                <img src="{{ image_url }}" alt="Image" data-url="{{ image_url }}">
-                <p>{{  image_url[-23:-13]  }}</p> 
+                <img src="{{ image.url }}" alt="Image">
+                <p>{{ image.added_string }}</p>
+                <p>{{ image.original_name[-23:-13] }}</p>
             </li>
         {% endfor %}
     </ul>
@@ -252,20 +253,22 @@
                         showNotification('Image deleted successfully.', false);
                         confirmationModal.style.display = 'none';
                         modal.style.display = 'none';
-                        setTimeout(() => location.reload(), 2000);
+                        setTimeout(() => location.reload(), 1500);
                     } else {
-                        showNotification('Failed to delete the image.', true);
+                        showNotification('Failed to delete image.', true);
                     }
                 });
             }
 
             function showNotification(message, isError) {
                 notification.textContent = message;
-                notification.classList.toggle('error', isError);
+                if (isError) {
+                    notification.classList.add('error');
+                } else {
+                    notification.classList.remove('error');
+                }
                 notification.style.display = 'block';
-                setTimeout(() => {
-                    notification.style.display = 'none';
-                }, 2000);
+                setTimeout(() => notification.style.display = 'none', 3000);
             }
         });
     </script>
